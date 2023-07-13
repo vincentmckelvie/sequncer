@@ -27,15 +27,11 @@ module.exports = {
     new CopyPlugin({
       patterns: [
         {
-          from: "./src/extras",
-          to: path.join(finalPath, "/extras"),
-          force: true,
-        },{
-          from: "./src/index.min.html",
+          from: "./src/index.html",
           to: path.join(finalPath, "/index.html"),
           force: true,
         },{
-          from: "./src/styles.min.css",
+          from: "./src/styles.css",
           to: path.join(finalPath, "/styles.css"),
           force: true,
         }
