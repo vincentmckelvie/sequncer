@@ -1,0 +1,344 @@
+<!DOCTYPE HTML>
+<html>
+	<head>	
+		<meta charset="utf-8" />
+		<title>Simple HTML</title>
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<!-- LOAD Tone.js from unpkg -->
+		<script src="http://unpkg.com/tone"></script>
+		<style type="text/css">
+			body{
+				padding: 0px;
+				margin: 0px;
+			}
+		</style>
+
+	</head>
+	<body>
+		<div style="position: fixed; top: 0px; left: 0px; width: 100%; height: 100%; background: rgba(0,0,0,.5);" id="overlay">
+			<div style=" padding:10px 20px; background-color:#fff; position:fixed; top: 50%; left: 50%; margin-left: -50px; margin-top: -25px; text-align: center;">ENTER</div>
+			
+			
+		</div>
+		<canvas id="canvas"></canvas>
+		
+		<script>
+
+			const arr = [];
+			let tmpArr = [];
+			const mouse = {
+				down:false,
+				x:0,
+				y:0,
+				first:false
+			}
+			let time = 0;
+			let synth;
+			let strokeIndex = 0;
+			const c = document.getElementById("canvas");
+			c.width = window.innerWidth;
+			c.height = window.innerHeight;
+			const ctx = c.getContext("2d");
+
+			const synthNotes = [
+				"C1", "D1", "E1", "G1", "A1", "B1", 
+				"C2", "D2", "E2", "G2", "A2", "B2", 
+				"C3", "D3", "E3", "G3", "A3", "B3",
+				"C4", "D4", "E4", "G4", "A4", "B4", 
+				"C5", "D5", "E5", "G5", "A5", "B5", 
+			];
+
+			Tone.Transport.start();
+			Tone.Transport.bpm.value = 120;
+
+			document.getElementById("overlay").addEventListener("click", init);
+			
+			document.addEventListener( 'mousemove', onMouseMove );
+			document.addEventListener( 'mousedown', onMouseDown );
+			document.addEventListener( 'mouseup', onMouseUp );
+			setInterval(update, 1000/60);
+			
+
+			function init() {
+				document.getElementById("overlay").style.display = "none";
+			}
+
+			function update(){
+				
+				const sp = Tone.Transport.position.split(":");
+				const curr = parseFloat( sp[2] );
+				
+				const currTm = parseFloat( sp[1] );
+
+				const sig = Tone.Transport._timeSignature;
+
+				time = ((currTm + (curr / sig)  ) / sig) * c.width;
+				
+				ctx.beginPath();
+				ctx.fillStyle="rgba(255,255,255,1)";
+				ctx.fillRect(0, 0, c.width, c.height)
+				ctx.closePath();
+				ctx.fillStyle="rgba(255,0,0,1)";
+				ctx.fillRect(time, 0, 2, c.height);
+
+				ctx.lineWidth = 20;
+					
+				if(mouse.down){
+
+					if(!mouse.first){
+						tmpArr.push({x:mouse.x, y:mouse.y, first:true})
+						mouse.first = true;
+					}else{
+						tmpArr.push({x:mouse.x, y:mouse.y, first:false})
+					}
+
+					ctx.beginPath();
+				
+					for(let i = 0; i<tmpArr.length; i++ ){
+							
+						if(i==0){
+							ctx.moveTo(tmpArr[i].x, tmpArr[i].y);
+						}else{
+							ctx.lineTo(tmpArr[i].x, tmpArr[i].y);
+						}
+					}
+
+					ctx.stroke();
+					
+				}else{
+
+					if(mouse.first){
+						mouse.first = false;
+						arr.push(new MouseInteraction({stroke:tmpArr, index:strokeIndex}))	
+						tmpArr = [];
+						strokeIndex++;
+					}
+
+				}
+
+				
+				
+				
+				for(let i = 0; i<arr.length; i++ ){
+					
+					
+
+					ctx.lineWidth = 20;
+					ctx.strokeStyle = "#000";
+					
+					if(arr[i].shouldBold){
+						ctx.lineWidth = 50;
+					}
+
+					if(arr[i].selected){
+						ctx.strokeStyle = "#f00";
+					}
+
+					
+					ctx.beginPath();
+					for(let k = 0; k < arr[i].stroke.length; k++ ){
+						
+						if(arr[i].stroke[k].first){
+							ctx.moveTo(arr[i].stroke[k].x, arr[i].stroke[k].y);
+						}else{
+							ctx.lineTo(arr[i].stroke[k].x, arr[i].stroke[k].y);
+						}
+
+						ctx.stroke();
+
+						
+					}
+
+
+					//
+					
+					
+					arr[i].update({time:time});
+
+				}
+				
+			
+
+				
+			}
+
+
+			function onMouseDown(e){
+				mouse.down = true;
+			}
+			function onMouseUp(e){
+				mouse.down = false;
+				//mouse.first = false;
+			}
+			function onMouseMove(e){
+				mouse.x = e.clientX;	
+				mouse.y = e.clientY;	
+			}
+
+			
+
+			class MouseInteraction{
+
+				constructor(OBJ){
+
+					this.stroke = OBJ.stroke;
+					this.index = OBJ.index;
+					this.initedSynth = false;
+					this.killedSynth = false;
+					this.shouldBold = false;
+					
+					this.synth;
+
+					this.selected = false;
+					
+					this.synth = new Tone.DuoSynth({
+						vibratoAmount: 0.5,
+						vibratoRate: 5,
+						portamento: 0.3,
+						harmonicity: 1.005,
+						volume: 5,
+						voice0: {
+							oscillator: {
+								type: "sawtooth"
+							},
+							filter: {
+								Q: 1,
+								type: "lowpass",
+								rolloff: -24
+							},
+							envelope: {
+								attack: 0.01,
+								decay: 0.25,
+								sustain: 0.4,
+								release: 1.2
+							},
+							filterEnvelope: {
+								attack: 0.001,
+								decay: 0.05,
+								sustain: 0.3,
+								release: 2,
+								baseFrequency: 100,
+								octaves: 4
+							}
+						},
+						voice1: {
+							oscillator: {
+								type: "sawtooth"
+							},
+							filter: {
+								Q: 2,
+								type: "bandpass",
+								rolloff: -12
+							},
+							envelope: {
+								attack: 0.25,
+								decay: 4,
+								sustain: 0.1,
+								release: 0.8
+							},
+							filterEnvelope: {
+								attack: 0.05,
+								decay: 0.05,
+								sustain: 0.7,
+								release: 2,
+								baseFrequency: 5000,
+								octaves: -1.5
+							}
+						}
+					}).toDestination();
+
+					
+
+				}
+
+				update(OBJ){
+					
+					const ac = this.getInBetween(OBJ);
+
+					if(!ac){
+						this.shouldBold = false;
+						if(!this.killedSynth){
+							this.synth.triggerRelease();
+							this.killedSynth = true;
+						}
+						this.initedSynth = false;
+
+					}else{
+						this.shouldBold = true;
+						if(!this.initedSynth){
+							this.synth.triggerAttack(ac.note);
+							this.initedSynth = true;
+						}else{
+							this.synth.setNote(ac.note);
+						}
+						this.killedSynth = false;
+					}
+
+					
+				}
+
+				
+
+
+
+				clamp(input, min, max) {
+        			return input < min ? min : input > max ? max : input;
+    			}
+
+				map(current, in_min, in_max, out_min, out_max) {
+			        const mapped = ((current - in_min) * (out_max - out_min)) / (in_max - in_min) + out_min;
+			        return this.clamp(mapped, out_min, out_max);
+			    }
+			    
+			    lerp( a, b, alpha ) {
+ 					return (a + alpha * ( b - a ));
+				}
+
+				getInBetween(OBJ){
+					//const aa = [];
+					for(let i = 0; i<this.stroke.length-1; i++){
+						if(this.stroke[i+1].x > this.stroke[i].x){
+							
+							if(OBJ.time >= this.stroke[i].x &&  OBJ.time < this.stroke[i+1].x){
+								
+								const distFirst = Math.abs(OBJ.time - this.stroke[i].x);
+								const distSecond = Math.abs(this.stroke[i].x - this.stroke[i+1].x);
+								const fac = this.map(distFirst, 0, distSecond, 0, 1);
+
+								const y = this.lerp(this.stroke[i].y,this.stroke[i+1].y, fac) 
+								const note = synthNotes[Math.round((1-(y/c.height)) * (synthNotes.length - 1))];
+								
+								return {note:note}
+
+							}	
+
+						}else{
+							
+							if(OBJ.time < this.stroke[i].x &&  OBJ.time >= this.stroke[i+1].x){
+
+								const distFirst = Math.abs(OBJ.time - this.stroke[i+1].x);
+								const distSecond = Math.abs(this.stroke[i].x - this.stroke[i+1].x);
+								const fac = this.map(distFirst, 0, distSecond, 0, 1);
+
+								const y = this.lerp(this.stroke[i+1].y,this.stroke[i].y, fac) 
+								const note = synthNotes[Math.round((1-(y/c.height)) * (synthNotes.length - 1))];
+								
+								return {note:note}
+							}
+
+						}
+						
+					}
+					return false;
+					//return {arr}
+				}
+
+				
+
+
+				
+			}
+
+		</script>
+	</body>
+</html>
